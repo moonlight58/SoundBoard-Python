@@ -10,21 +10,25 @@
 ########################################################################################################################
 
 import pygame
+import time
 from tkinter import *
 from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import showinfo
+from mutagen.mp3 import MP3
 
 class Example(Frame):
+
     def __init__(self, master=None):
         super().__init__(master)
         self.master = master
-        self.sound_divs = [] # Liste pour stocker les références des divs de son
-        self.current_row = 1 # Pour suivre la ligne actuelle
-        self.current_column = 0 # Pour échanger de colonnes
+        self.sound_divs = []
+        self.current_row = 1
+        self.current_column = 0
         self.initUI()
-        self.sound_file = None # Variable pour stocker le chemin du fichier MP3
-        self.current_sound = None # Variable pour stocker le son actuellement joué
-        pygame.mixer.init() # Initialiser le mixeur Pygame une seule fois
+        self.sound_file = None
+        self.current_sound = None
+        self.start_time = None
+        pygame.mixer.init()
 
     def initUI(self):
         menubar = Menu(self.master)
@@ -47,6 +51,7 @@ class Example(Frame):
         else:
             showinfo("Error", "No sound file selected.")
 
+
     def button_sound(self):
         if self.current_sound:
             self.current_sound.stop()
@@ -54,15 +59,33 @@ class Example(Frame):
             pygame.mixer.init()
             self.current_sound = pygame.mixer.Sound(self.sound_file)
             self.current_sound.play()
+            self.start_time = time.time() # Enregistrer le moment où le son commence à jouer
+            self.update_time_label() # Commencer à mettre à jour le label de temps
         else:
             if self.sound_file:
                 try:
-                    self.current_sound = pygame.mixer.Sound(self.sound_file) # Charger le fichier MP3
-                    self.current_sound.play() # Jouer le fichier MP3
+                    self.current_sound = pygame.mixer.Sound(self.sound_file)
+                    self.current_sound.play()
+                    self.start_time = time.time()
+                    self.update_time_label()
                 except pygame.error:
                     showinfo("Error", "Failed to play the sound file.")
             else:
                 showinfo("Error", "No sound file selected.")
+
+    def get_mp3_duration(self, file_path):
+        audio = MP3(file_path)
+        return audio.info.length
+
+    def update_time_label(self):
+        if self.current_sound and pygame.mixer.get_busy():
+            elapsed_time = time.time() - self.start_time
+            total_time = self.get_mp3_duration(self.sound_file)
+            self.time_label.config(text=f"{elapsed_time:.2f} / {total_time:.2f} seconds")
+            self.after(100, self.update_time_label)  # Mettre à jour le label toutes les 100 millisecondes
+        else:
+            total_time = self.get_mp3_duration(self.sound_file)
+            self.time_label.config(text=f"{total_time:.2f} seconds")
 
     def open_input_window(self):
         # Créer une nouvelle fenêtre
@@ -74,11 +97,16 @@ class Example(Frame):
         input_field.pack(padx=10, pady=10)
 
         # Créer un bouton pour soumettre la saisie
-        submit_button = Button(input_window, text="Submit", command=lambda: self.setName(input_field.get()))
+        submit_button = Button(input_window, text="Submit",
+                               command=lambda: self.set_name(input_field.get(), input_window))
         submit_button.pack(padx=10, pady=10)
 
-    def setName(self, name):
+        # Attendre que la fenêtre soit fermée
+        self.master.wait_window(input_window)
+
+    def set_name(self, name, input_window):
         self.name = name
+        input_window.destroy()  # Fermer la fenêtre d'entrée après la soumission du nom
 
     def button_stop(self):
         if self.current_sound:
@@ -95,6 +123,7 @@ class Example(Frame):
         self.set_sound(self.name)
 
     def set_sound(self, name):
+        total_time = self.get_mp3_duration(self.sound_file)
         row = self.current_row
         column = 0
 
@@ -117,12 +146,14 @@ class Example(Frame):
         Stop_Button = Button(Button_Play_Stop_Div, text="Stop", command=self.button_stop)
         Stop_Button.grid(row=0, column=1, padx=5, pady=5)
 
-        Label(Inside_Div, text="Time of the sound").grid(row=1, column=0, padx=5, pady=5)
+        # Créer un label pour afficher le temps
+        self.time_label = Label(Inside_Div, text=f"{total_time:.2f} seconds")
+        self.time_label.grid(row=1, column=0, padx=5, pady=5)
 
         Delete_Button = Button(Inside_Div, text="Delete", command=lambda: self.delete_sound(Div_player))
         Delete_Button.grid(row=2, column=0, padx=5, pady=5)
 
-        self.sound_divs.append((Div_player, Inside_Div, Play_Button, Stop_Button, Button_Play_Stop_Div, Delete_Button))
+        self.sound_divs.append((Div_player, Inside_Div, Play_Button, Stop_Button, Button_Play_Stop_Div, Delete_Button, self.time_label))
 
         self.current_row += 1
 
@@ -138,6 +169,7 @@ class Example(Frame):
 def main():
     root = Tk()
     root.geometry("400x400")
+    root.minsize(400,400)
     root.title("SoundBoard Test")
     root.resizable(True, True)
     app = Example(master=root)
