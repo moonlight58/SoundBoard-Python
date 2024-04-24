@@ -15,6 +15,7 @@ from tkinter import *
 from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import showinfo
 from mutagen.mp3 import MP3
+import json
 
 class Example(Frame):
 
@@ -28,6 +29,7 @@ class Example(Frame):
         self.sound_file = None
         self.current_sound = None
         self.start_time = None
+        self.sounds = []
         pygame.mixer.init()
 
     def initUI(self):
@@ -41,37 +43,44 @@ class Example(Frame):
         menu2.add_command(label="Edit", command=self.edit_soundboard)
         menubar.add_cascade(label="Edit", menu=menu2)
 
+        menu3 = Menu(menubar, tearoff=0) # Menu3 "Save/Load"
+        menu3.add_command(label="Save Sounds", command=lambda: self.save_sounds('sounds.json'))
+        menu3.add_command(label="Load Sounds", command=lambda: self.load_sounds('sounds.json'))
+        menubar.add_cascade(label="Save/Load", menu=menu3)
+
+
         self.master.config(menu=menubar) # Initialisation du menu
 
     def open_file(self):
         file_path = askopenfilename(title="Choose the file to open", filetypes=[("MP3 files", "*.mp3")])
         if file_path:
             self.sound_file = file_path # Stocker le chemin du fichier sélectionné
-            self.create_sound()
+            self.create_sound(self.sound_file)
         else:
             showinfo("Error", "No sound file selected.")
 
+    def save_sounds(self, file_path):
+        with open(file_path, 'w') as f:
+            json.dump(self.sounds, f)
 
-    def button_sound(self):
+    def load_sounds(self, file_path):
+        with open(file_path, 'r') as f:
+            self.sounds = json.load(f)
+        # Après avoir chargé les sons, vous pouvez les afficher dans l'interface utilisateur.
+        for sound in self.sounds:
+            self.set_sound(sound['name'], sound['file_path'])
+
+
+    def play_sound(self, file_path):
         if self.current_sound:
             self.current_sound.stop()
-            self.current_sound = None
-            pygame.mixer.init()
-            self.current_sound = pygame.mixer.Sound(self.sound_file)
+        try:
+            self.current_sound = pygame.mixer.Sound(file_path)
             self.current_sound.play()
-            self.start_time = time.time() # Enregistrer le moment où le son commence à jouer
-            self.update_time_label() # Commencer à mettre à jour le label de temps
-        else:
-            if self.sound_file:
-                try:
-                    self.current_sound = pygame.mixer.Sound(self.sound_file)
-                    self.current_sound.play()
-                    self.start_time = time.time()
-                    self.update_time_label()
-                except pygame.error:
-                    showinfo("Error", "Failed to play the sound file.")
-            else:
-                showinfo("Error", "No sound file selected.")
+            self.start_time = time.time()
+            self.update_time_label()
+        except pygame.error:
+            showinfo("Error", "Failed to play the sound file.")
 
     def get_mp3_duration(self, file_path):
         audio = MP3(file_path)
@@ -81,11 +90,11 @@ class Example(Frame):
         if self.current_sound and pygame.mixer.get_busy():
             elapsed_time = time.time() - self.start_time
             total_time = self.get_mp3_duration(self.sound_file)
-            self.time_label.config(text=f"{elapsed_time:.2f} / {total_time:.2f} seconds")
+            self.time_label.config(text=f"{elapsed_time:.2f} / {total_time:.2f} s")
             self.after(100, self.update_time_label)  # Mettre à jour le label toutes les 100 millisecondes
         else:
             total_time = self.get_mp3_duration(self.sound_file)
-            self.time_label.config(text=f"{total_time:.2f} seconds")
+            self.time_label.config(text=f"{total_time:.2f} s")
 
     def open_input_window(self):
         # Créer une nouvelle fenêtre
@@ -118,11 +127,25 @@ class Example(Frame):
     def edit_soundboard(self):
         print("Editing soundboard...")
 
-    def create_sound(self):
+    def create_sound(self, file_path):
         self.open_input_window()
-        self.set_sound(self.name)
+        self.set_sound(self.name, file_path)
+        self.sounds.append({'name': self.name, 'file_path': self.sound_file, 'duration': self.get_mp3_duration(self.sound_file)})
 
-    def set_sound(self, name):
+    def delete_sound(self, div_player):
+        div_player.destroy()
+        self.sound_divs.remove(div_player)
+        for sound in self.sounds:
+            if sound['file_path'] == self.sound_file:
+                self.sounds.remove(sound)
+                break
+
+    def reset_sound_div(self, index):
+        if index < len(self.sound_divs):
+            Div_player, Inside_Div, Play_Button, Stop_Button, Button_Play_Stop_Div, Delete_Button = self.sound_divs[index]
+            Play_Button.config(text="New Play Text")
+
+    def set_sound(self, name, file_path):
         total_time = self.get_mp3_duration(self.sound_file)
         row = self.current_row
         column = 0
@@ -140,7 +163,7 @@ class Example(Frame):
                                      bg="lightblue")
         Button_Play_Stop_Div.grid(row=0, column=0, padx=5, pady=5)
 
-        Play_Button = Button(Button_Play_Stop_Div, text="Play", command=self.button_sound)
+        Play_Button = Button(Button_Play_Stop_Div, text="Play", command=lambda: self.play_sound(file_path))
         Play_Button.grid(row=0, column=0, padx=5, pady=5)
 
         Stop_Button = Button(Button_Play_Stop_Div, text="Stop", command=self.button_stop)
@@ -157,15 +180,6 @@ class Example(Frame):
 
         self.current_row += 1
 
-    def delete_sound(self, div_player):
-        div_player.destroy()
-        self.sound_divs.remove(div_player)
-
-    def reset_sound_div(self, index):
-        if index < len(self.sound_divs):
-            Div_player, Inside_Div, Play_Button, Stop_Button, Button_Play_Stop_Div, Delete_Button = self.sound_divs[index]
-            Play_Button.config(text="New Play Text")
-
 def main():
     root = Tk()
     root.geometry("400x400")
@@ -173,6 +187,10 @@ def main():
     root.title("SoundBoard Test")
     root.resizable(True, True)
     app = Example(master=root)
+
+    # Charger les sons sauvegardés au démarrage
+    app.load_sounds('sounds.json')
+
     root.mainloop()
 
 if __name__ == '__main__':
