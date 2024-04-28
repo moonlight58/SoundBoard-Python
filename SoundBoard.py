@@ -49,12 +49,12 @@ class Example(Frame):
         menubar.add_cascade(label="Save/Load", menu=menu3)
 
 
-        self.master.config(menu=menubar) # Initialisation du menu
+        self.master.config(menu=menubar) # Menu initialization
 
     def open_file(self):
         file_path = askopenfilename(title="Choose the file to open", filetypes=[("MP3 files", "*.mp3")])
         if file_path:
-            self.sound_file = file_path # Stocker le chemin du fichier sélectionné
+            self.sound_file = file_path # Store the selected file path
             self.create_sound(self.sound_file)
         else:
             showinfo("Error", "No sound file selected.")
@@ -64,12 +64,16 @@ class Example(Frame):
             json.dump(self.sounds, f)
 
     def load_sounds(self, file_path):
-        with open(file_path, 'r') as f:
-            self.sounds = json.load(f)
-        # Après avoir chargé les sons, vous pouvez les afficher dans l'interface utilisateur.
-        for sound in self.sounds:
-            self.set_sound(sound['name'], sound['file_path'])
-
+        try:
+            with open(file_path, 'r') as f:
+                self.sounds = json.load(f)
+            # After loading the sounds, you can display them in the user interface.
+            for sound in self.sounds:
+                self.set_sound(sound['name'], sound['file_path'])
+        except FileNotFoundError:
+            print("File not found.")
+        except json.JSONDecodeError:
+            print("Error decoding JSON from file.")
 
     def play_sound(self, file_path):
         if self.current_sound:
@@ -91,36 +95,36 @@ class Example(Frame):
             elapsed_time = time.time() - self.start_time
             total_time = self.get_mp3_duration(self.sound_file)
             self.time_label.config(text=f"{elapsed_time:.2f} / {total_time:.2f} s")
-            self.after(100, self.update_time_label)  # Mettre à jour le label toutes les 100 millisecondes
+            self.after(100, self.update_time_label)  # Update the label every 100 milliseconds
         else:
             total_time = self.get_mp3_duration(self.sound_file)
-            self.time_label.config(text=f"{total_time:.2f} s")
+            self.time_label.config(text=f"0.00 / {total_time:.2f} s")
 
     def open_input_window(self):
-        # Créer une nouvelle fenêtre
+        # Create a new window
         input_window = Toplevel(self.master)
         input_window.title("Enter Sound Name")
 
-        # Créer un champ de texte
+        # Create a text field
         input_field = Entry(input_window)
         input_field.pack(padx=10, pady=10)
 
-        # Créer un bouton pour soumettre la saisie
+        # Create a button to submit the input
         submit_button = Button(input_window, text="Submit",
                                command=lambda: self.set_name(input_field.get(), input_window))
         submit_button.pack(padx=10, pady=10)
 
-        # Attendre que la fenêtre soit fermée
+        # Wait for the window to be closed
         self.master.wait_window(input_window)
 
     def set_name(self, name, input_window):
         self.name = name
-        input_window.destroy()  # Fermer la fenêtre d'entrée après la soumission du nom
+        input_window.destroy()  # Close the input window after submitting the name
 
     def button_stop(self):
         if self.current_sound:
-            self.current_sound.stop() # Arrêter le son actuellement joué
-            self.current_sound = None # Réinitialiser la référence au son
+            self.current_sound.stop() # Stop the currently playing sound
+            self.current_sound = None # Reset the sound reference
         else:
             showinfo("Warning", "No sound is currently playing.")
 
@@ -140,28 +144,22 @@ class Example(Frame):
                 self.sounds.remove(sound)
                 break
 
-    def reset_sound_div(self, index):
-        if index < len(self.sound_divs):
-            Div_player, Inside_Div, Play_Button, Stop_Button, Button_Play_Stop_Div, Delete_Button = self.sound_divs[index]
-            Play_Button.config(text="New Play Text")
-
     def set_sound(self, name, file_path):
-        total_time = self.get_mp3_duration(self.sound_file)
+        total_time = self.get_mp3_duration(file_path)  # Use file_path instead of self.sound_file
         row = self.current_row
         column = 0
 
-        Div_player = Frame(self.master, width=200, height=200, borderwidth=2, relief="raised")
+        Div_player = Frame(self.master, width=200, height=200, borderwidth=2, relief="groove")
         Div_player.grid(row=row, column=column, padx=10, pady=5)
 
-        Label(Div_player, text=name).grid(row=0, column=0, padx=5, pady=5)
+        Label(Div_player, text=name).grid(row=0, column=0, pady=(10,0))
 
         Inside_Div = Frame(Div_player, width=(Div_player.winfo_reqwidth() * 0.90),
-                           height=(Div_player.winfo_reqheight() * 0.5), bg="purple")
+                           height=(Div_player.winfo_reqheight() * 0.5))
         Inside_Div.grid(row=2, column=0, padx=5, pady=5)
 
-        Button_Play_Stop_Div = Frame(Inside_Div, width=Inside_Div.winfo_reqwidth(), height=Inside_Div.winfo_reqheight(),
-                                     bg="lightblue")
-        Button_Play_Stop_Div.grid(row=0, column=0, padx=5, pady=5)
+        Button_Play_Stop_Div = Frame(Inside_Div, width=Inside_Div.winfo_reqwidth(), height=Inside_Div.winfo_reqheight())
+        Button_Play_Stop_Div.grid(row=0, column=0, padx=5)
 
         Play_Button = Button(Button_Play_Stop_Div, text="Play", command=lambda: self.play_sound(file_path))
         Play_Button.grid(row=0, column=0, padx=5, pady=5)
@@ -169,8 +167,8 @@ class Example(Frame):
         Stop_Button = Button(Button_Play_Stop_Div, text="Stop", command=self.button_stop)
         Stop_Button.grid(row=0, column=1, padx=5, pady=5)
 
-        # Créer un label pour afficher le temps
-        self.time_label = Label(Inside_Div, text=f"{total_time:.2f} seconds")
+        # Create a label to display the time
+        self.time_label = Label(Inside_Div, text=f"0.00 / {total_time:.2f} s")
         self.time_label.grid(row=1, column=0, padx=5, pady=5)
 
         Delete_Button = Button(Inside_Div, text="Delete", command=lambda: self.delete_sound(Div_player))
@@ -188,7 +186,7 @@ def main():
     root.resizable(True, True)
     app = Example(master=root)
 
-    # Charger les sons sauvegardés au démarrage
+    # Load saved sounds on startup
     app.load_sounds('sounds.json')
 
     root.mainloop()
