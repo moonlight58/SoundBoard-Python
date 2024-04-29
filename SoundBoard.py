@@ -1,7 +1,7 @@
 #!/usr/bin/python3
 ########################################################################################################################
 # ScriptName    : SoundBoard.py                                                                                        #
-# Description   : Create/Edit/Delete a div that can play/stop a sound from a file path                                 #
+# Description   : Create/Edit/Delete a div that can play/stop a sound from a file                                      #
 # Author        : Röthlin Gaël                                                                                         #
 # Email         : gael.rothlin@proton.me                                                                               #
 # NB            : I'm new to programming so it can be junking. Trying to improve my skills and this code too. It's not #
@@ -33,8 +33,9 @@ class Example(Frame):
         self.sounds = []
         pygame.mixer.init()
         print(devicer.audio.get_audio_device_names(True))
-        print("Outputs:", devicer.audio.get_audio_device_names(False))
+        # print("Outputs:", devicer.audio.get_audio_device_names(False))
         mixer.init(devicename='Alder Lake PCH-P High Definition Audio Controller Speaker + Headphones')
+
 
     def initUI(self):
         menubar = Menu(self.master)
@@ -65,10 +66,10 @@ class Example(Frame):
 
     def save_sounds(self, file_path):
         with open(file_path, 'w') as f:
+            print(self.sounds)
             json.dump(self.sounds, f)
 
     def load_sounds(self, file_path):
-
         try:
             with open(file_path, 'r') as f:
                 self.sounds = json.load(f)
@@ -146,8 +147,11 @@ class Example(Frame):
     def delete_sound(self, div_player):
         if self.current_sound:
             self.current_sound.stop()
+        for i, sound_div in enumerate(self.sound_divs):
+            if sound_div[0] == div_player:
+                self.sound_divs.pop(i)
+                break
         div_player.destroy()
-        self.sound_divs.remove(div_player)
         # Find the sound to delete by matching the file_path
         for sound in self.sounds[:]:  # Use a copy of the list to safely iterate and remove
             if sound['file_path'] == self.sound_file:
@@ -184,7 +188,8 @@ class Example(Frame):
         Delete_Button = Button(Inside_Div, text="Delete", command=lambda: self.delete_sound(Div_player))
         Delete_Button.grid(row=2, column=0, padx=5, pady=5)
 
-        self.sound_divs.append((Div_player, Inside_Div, Play_Button, Stop_Button, Button_Play_Stop_Div, Delete_Button, self.time_label))
+        self.sound_divs.append(
+            (Div_player, Inside_Div, Play_Button, Stop_Button, Button_Play_Stop_Div, Delete_Button, self.time_label))
 
         self.current_row += 1
 
