@@ -15,6 +15,7 @@ from tkinter import *
 from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import showinfo
 from mutagen.mp3 import MP3
+from pygame import mixer, _sdl2 as devicer
 import json
 
 class Example(Frame):
@@ -31,6 +32,9 @@ class Example(Frame):
         self.start_time = None
         self.sounds = []
         pygame.mixer.init()
+        print(devicer.audio.get_audio_device_names(True))
+        print("Outputs:", devicer.audio.get_audio_device_names(False))
+        mixer.init(devicename='Alder Lake PCH-P High Definition Audio Controller Speaker + Headphones')
 
     def initUI(self):
         menubar = Menu(self.master)
@@ -64,6 +68,7 @@ class Example(Frame):
             json.dump(self.sounds, f)
 
     def load_sounds(self, file_path):
+
         try:
             with open(file_path, 'r') as f:
                 self.sounds = json.load(f)
@@ -80,8 +85,10 @@ class Example(Frame):
             self.current_sound.stop()
         try:
             self.current_sound = pygame.mixer.Sound(file_path)
+            mixer.music.load(file_path)
             self.current_sound.play()
             self.start_time = time.time()
+            self.current_sound_file = file_path  # Store the current sound file path
             self.update_time_label()
         except pygame.error:
             showinfo("Error", "Failed to play the sound file.")
@@ -93,11 +100,11 @@ class Example(Frame):
     def update_time_label(self):
         if self.current_sound and pygame.mixer.get_busy():
             elapsed_time = time.time() - self.start_time
-            total_time = self.get_mp3_duration(self.sound_file)
+            total_time = self.get_mp3_duration(self.current_sound_file)  # Use the current sound file path
             self.time_label.config(text=f"{elapsed_time:.2f} / {total_time:.2f} s")
             self.after(100, self.update_time_label)  # Update the label every 100 milliseconds
         else:
-            total_time = self.get_mp3_duration(self.sound_file)
+            total_time = self.get_mp3_duration(self.current_sound_file)  # Use the current sound file path
             self.time_label.config(text=f"0.00 / {total_time:.2f} s")
 
     def open_input_window(self):
@@ -137,9 +144,12 @@ class Example(Frame):
         self.sounds.append({'name': self.name, 'file_path': self.sound_file, 'duration': self.get_mp3_duration(self.sound_file)})
 
     def delete_sound(self, div_player):
+        if self.current_sound:
+            self.current_sound.stop()
         div_player.destroy()
         self.sound_divs.remove(div_player)
-        for sound in self.sounds:
+        # Find the sound to delete by matching the file_path
+        for sound in self.sounds[:]:  # Use a copy of the list to safely iterate and remove
             if sound['file_path'] == self.sound_file:
                 self.sounds.remove(sound)
                 break
