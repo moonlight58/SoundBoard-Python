@@ -75,6 +75,7 @@ class Example(Frame):
                 self.sounds = json.load(f)
             # After loading the sounds, you can display them in the user interface.
             for sound in self.sounds:
+                print(self.sound_divs)
                 self.set_sound(sound['name'], sound['file_path'])
         except FileNotFoundError:
             print("File not found.")
@@ -149,12 +150,17 @@ class Example(Frame):
             self.current_sound.stop()
         for i, sound_div in enumerate(self.sound_divs):
             if sound_div[0] == div_player:
+                print(self.sound_divs)
                 self.sound_divs.pop(i)
                 break
         div_player.destroy()
         # Find the sound to delete by matching the file_path
         for sound in self.sounds[:]:  # Use a copy of the list to safely iterate and remove
+            print(sound['file_path'])
+            print(self.current_sound)
+            print(sound['file_path'] == self.sound_file)
             if sound['file_path'] == self.sound_file:
+                print(self.sounds)
                 self.sounds.remove(sound)
                 break
 
