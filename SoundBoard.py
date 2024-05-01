@@ -10,15 +10,19 @@
 ########################################################################################################################
 
 import pygame
+import pyaudio
+import wave
+import subprocess
+import os
 import time
+import json
 from tkinter import *
 from tkinter.filedialog import askopenfilename
 from tkinter.messagebox import showinfo
 from mutagen.mp3 import MP3
 from pygame import mixer, _sdl2 as devicer
-import json
 
-class Example(Frame):
+class SoundBoard(Frame):
 
     def __init__(self, master=None):
         super().__init__(master)
@@ -34,7 +38,7 @@ class Example(Frame):
         pygame.mixer.init()
         print(devicer.audio.get_audio_device_names(True))
         # print("Outputs:", devicer.audio.get_audio_device_names(False))
-        mixer.init(devicename='Alder Lake PCH-P High Definition Audio Controller Speaker + Headphones')
+        mixer.init(devicename='Microphone (USB PnP Sound Device)')
 
 
     def initUI(self):
@@ -81,14 +85,13 @@ class Example(Frame):
             print("File not found.")
         except json.JSONDecodeError:
             print("Error decoding JSON from file.")
-
+ 
     def play_sound(self, file_path):
         if self.current_sound:
             self.current_sound.stop()
         try:
-            self.current_sound = pygame.mixer.Sound(file_path)
-            mixer.music.load(file_path)
-            self.current_sound.play()
+            self.current_sound_object = pygame.mixer.Sound(file_path)
+            self.current_sound = self.current_sound_object.play()
             self.start_time = time.time()
             self.current_sound_file = file_path  # Store the current sound file path
             self.update_time_label()
@@ -140,10 +143,17 @@ class Example(Frame):
     def edit_soundboard(self):
         print("Editing soundboard...")
 
+    def set_volume(self, volume, sound_object):
+        sound_object.set_volume(int(volume) / 100)
+        if self.current_sound and pygame.mixer.get_busy() and self.current_sound.get_name() == sound_object.get_name():
+            self.current_sound.stop()
+            self.current_sound.play()
+
     def create_sound(self, file_path):
         self.open_input_window()
+        sound_object = pygame.mixer.Sound(file_path)
         self.set_sound(self.name, file_path)
-        self.sounds.append({'name': self.name, 'file_path': self.sound_file, 'duration': self.get_mp3_duration(self.sound_file)})
+        self.sounds.append({'name': self.name, 'file_path': self.sound_file, 'duration': self.get_mp3_duration(self.sound_file), 'sound_object': sound_object})
 
     def delete_sound(self, div_player):
         if self.current_sound:
@@ -163,6 +173,7 @@ class Example(Frame):
                 print(self.sounds)
                 self.sounds.remove(sound)
                 break
+
 
     def set_sound(self, name, file_path):
         total_time = self.get_mp3_duration(file_path)  # Use file_path instead of self.sound_file
@@ -191,11 +202,16 @@ class Example(Frame):
         self.time_label = Label(Inside_Div, text=f"0.00 / {total_time:.2f} s")
         self.time_label.grid(row=1, column=0, padx=5, pady=5)
 
+        # Create a slider for controlling volume
+        sound_object = pygame.mixer.Sound(file_path)
+        volume_slider = Scale(Inside_Div, from_=0, to=100, orient=HORIZONTAL, command=lambda volume: self.set_volume(volume, sound_object))
+        volume_slider.grid(row=2, column=0, padx=5, pady=5)
+
         Delete_Button = Button(Inside_Div, text="Delete", command=lambda: self.delete_sound(Div_player))
-        Delete_Button.grid(row=2, column=0, padx=5, pady=5)
+        Delete_Button.grid(row=3, column=0, padx=5, pady=5)
 
         self.sound_divs.append(
-            (Div_player, Inside_Div, Play_Button, Stop_Button, Button_Play_Stop_Div, Delete_Button, self.time_label))
+            (Div_player, Inside_Div, Play_Button, Stop_Button, Button_Play_Stop_Div, Delete_Button, self.time_label, volume_slider))
 
         self.current_row += 1
 
@@ -205,7 +221,7 @@ def main():
     root.minsize(400,400)
     root.title("SoundBoard Test")
     root.resizable(True, True)
-    app = Example(master=root)
+    app = SoundBoard(master=root)
 
     # Load saved sounds on startup
     app.load_sounds('sounds.json')
